@@ -1,1 +1,1 @@
-# monitoring-2025
+# Мониторинг для Astra (https://cesbo.com)
