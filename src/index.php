@@ -9,13 +9,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
 
     if (isset($users[$username]) && $users[$username]['password'] === $password) {
-        $_SESSION['user'] = [
-            'username' => $username,
-            'role' => $users[$username]['role']
-        ];
-        header('Location: dashboard.php');
-        exit();
-    } else {
+    $_SESSION['user'] = [
+        'username' => $username,
+        'role' => $users[$username]['role'],
+        'email' => $users[$username]['email'] ?? 'не указано',
+        'created_at' => $users[$username]['created_at'] ?? 'неизвестно'
+    ];
+    header('Location: dashboard.php');
+    exit();
+}
+ else {
         $error = 'Неверный логин или пароль';
     }
 }
