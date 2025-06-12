@@ -25,8 +25,6 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-// дропаем
-http_response_code(200); 
-__log(json_encode(['status' => 'received and ignored for now']));
+__log($data);
 
 ?>
