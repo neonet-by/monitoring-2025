@@ -1,0 +1,9 @@
+Сделать дамп:
+1. Окрыть cmd
+2. "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump" -u root -p praktica > database.sql
+3. Дамп хранится в C:\Users\*имя пользователя*
+
+Востановление дампа:
+1. Открыть cmd
+2. "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p -e "CREATE DATABASE praktica;"
+3. "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p praktica < database.sql
