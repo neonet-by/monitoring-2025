@@ -25,6 +25,6 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-__log($data);
+__log($rawInput);
 
 ?>
