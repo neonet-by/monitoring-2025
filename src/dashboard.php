@@ -7,65 +7,97 @@ if (!isset($_SESSION['user'])) {
 }
 
 $user = $_SESSION['user'];
+
+// подключение мемкэша
+$memcache = new Memcache();
+$memcache->connect('localhost', 11211);
+
+function getMetric($memcache, $key) {
+    $value = $memcache->get($key);
+    return $value !== false ? $value : 'N/A';
+}
+
+function getStatusClass($value) {
+    if ($value === 'N/A') return 'neutral';
+    $value = (int)$value;
+    if ($value > 1000) return 'critical';
+    if ($value > 100) return 'warning';
+    return 'normal';
+}
+
+// каналы для отображения
+$channels = [
+    'a002' => 'RTG TV',
+    'a004' => 'DRIVE',
+    'a003' => 'TEST'
+];
 ?>
 
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Панель управления</title>
     <style>
-        table {
-            border-collapse: collapse;
-            width: 60%;
-            margin-top: 20px;
-        }
-        th, td {
-            border: 1px solid #444;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #eee;
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .channel-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .channel-table th, .channel-table td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+        .channel-table th { background-color: #f2f2f2; }
+        .normal { background-color: #d4edda; }
+        .warning { background-color: #fff3cd; }
+        .critical { background-color: #f8d7da; }
+        .neutral { background-color: #e2e3e5; }
+        .status { font-weight: bold; }
+        .on-air { color: green; }
+        .off-air { color: red; }
     </style>
 </head>
 <body>
-    <p>Роль: <strong><?= $user['role'] ?></strong></p>
-
+    <p>Пользователь: <strong><?= htmlspecialchars($user['username']) ?></strong></p>
     
-
-    <table>
+    <table class="channel-table">
         <thead>
             <tr>
-                <?php if ($user['role'] === 'admin'): ?>
-                    <th>ID</th>
-                <?php endif; ?>
-                <th>Имя пользователя</th>
-                <th>Телефон</th>
-                <?php if ($user['role'] === 'admin'): ?>
-                    <th>Дата регистрации</th>
-                    <th>Статус</th>
-                <?php else: ?>
-                    <th>Дата регистрации</th>
-                <?php endif; ?>
+                <th>Канал</th>
+                <th>Вход</th>
+                <th>SC Errors</th>
+                <th>PES Errors</th>
+                <th>PCR Errors</th>
+                <th>Bitrate</th>
+                <th>Статус</th>
+                <th>Последнее обновление</th>
             </tr>
         </thead>
         <tbody>
-            <tr>
-                <?php if ($user['role'] === 'admin'): ?>
-                    <td>1</td>
-                <?php endif; ?>
-                <td><?= htmlspecialchars($user['username']) ?></td>
-                <td><?= htmlspecialchars($user['phone'] ?? 'неизвестно') ?></td>
-                <td><?= htmlspecialchars($user['created_at'] ?? 'неизвестно') ?></td>
-                <?php if ($user['role'] === 'admin'): ?>
-                    <td>Активен</td>
-                <?php endif; ?>
-            </tr>
+            <?php foreach ($channels as $id => $name): ?>
+                <?php for ($input = 1; $input <= 2; $input++): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($name) ?></td>
+                        <td>Input <?= $input ?></td>
+                        
+                        <td class="<?= getStatusClass(getMetric($memcache, "channel.{$id}.{$input}.sc_error")) ?>">
+                            <?= getMetric($memcache, "channel.{$id}.{$input}.sc_error") ?>
+                        </td>
+                        
+                        <td class="<?= getStatusClass(getMetric($memcache, "channel.{$id}.{$input}.pes_error")) ?>">
+                            <?= getMetric($memcache, "channel.{$id}.{$input}.pes_error") ?>
+                        </td>
+                        
+                        <td class="<?= getStatusClass(getMetric($memcache, "channel.{$id}.{$input}.pcr_error")) ?>">
+                            <?= getMetric($memcache, "channel.{$id}.{$input}.pcr_error") ?>
+                        </td>
+                        
+                        <td><?= getMetric($memcache, "channel.{$id}.{$input}.bitrate") ?> kbps</td>
+                        
+                        <td class="status <?= getMetric($memcache, "channel.{$id}.{$input}.onair") ? 'on-air' : 'off-air' ?>">
+                            <?= getMetric($memcache, "channel.{$id}.{$input}.onair") ? 'ON AIR' : 'OFF' ?>
+                        </td>
+                        
+                        <td><?= date('H:i:s', getMetric($memcache, "channel.{$id}.{$input}.timestamp")) ?></td>
+                    </tr>
+                <?php endfor; ?>
+            <?php endforeach; ?>
         </tbody>
     </table>
 
-    <p><a href="logout.php">Выйти</a></p>
 </body>
 </html>
