@@ -3,12 +3,20 @@
 function __log($msg) {
     date_default_timezone_set('Europe/Minsk');
     $logFile = __DIR__ . '/ast-mon.log';
+
     if (is_array($msg)) {
         $msg = json_encode($msg, JSON_UNESCAPED_UNICODE);
     }
-    $logMessage = date("Y-m-d H:i:s") . " " . getmypid() . "  " . $msg . PHP_EOL;
+
+    // Удаляем переводы строк и табы
+    $msg = preg_replace('/[\r\n\t]+/', ' ', $msg);
+    $msg = trim($msg);
+
+    // Без перевода строки!
+    $logMessage = date("Y-m-d H:i:s") . " " . getmypid() . "  " . $msg . " | ";
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
+
 
 // проверка на Post запрос
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
