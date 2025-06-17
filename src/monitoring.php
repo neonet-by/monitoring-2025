@@ -1,8 +1,8 @@
 <?php
 
-function log($msg) {
+function __log($msg) {
     date_default_timezone_set('Europe/Minsk');
-    $logFile = __DIR . '/ast-mon.log';
+    $logFile = __DIR__ . '/ast-mon.log';
     if (is_array($msg)) {
         $msg = json_encode($msg, JSON_UNESCAPED_UNICODE);
     }

@@ -1,5 +1,6 @@
 <?php
 session_start();
+date_default_timezone_set('Europe/Minsk');
 
 if (!isset($_SESSION['user'])) {
     header('Location: index.php');
@@ -7,6 +8,7 @@ if (!isset($_SESSION['user'])) {
 }
 
 $user = $_SESSION['user'];
+$isAdmin = isset($user['role']) && $user['role'] === 'admin';
 
 $memcache = new Memcache();
 $memcache->connect('localhost', 11211);
@@ -28,43 +30,52 @@ $channels = [
 $data = [];
 
 foreach ($channels as $id => $name) {
-    $activeInputData = null;
-    for ($input = 1; $input <= 2; $input++) {
-        $prefix = "channel.{$id}.{$input}";
+    $inputData = [];
+    $input = 1;
 
-        $sc_error = memcache_get($memcache, "$prefix.sc_error");
-        $pes_error = memcache_get($memcache, "$prefix.pes_error");
-        $pcr_error = memcache_get($memcache, "$prefix.pcr_error");
-        $bitrate = memcache_get($memcache, "$prefix.bitrate");
-        $onair = memcache_get($memcache, "$prefix.onair");
-        $timestamp = memcache_get($memcache, "$prefix.timestamp");
+    $maxInputs = 5; 
+while ($input <= $maxInputs) {
+    $prefix = "channel.{$id}.{$input}";
 
-        $entry = [
-            'name' => $name,
-            'input' => $input,
-            'sc_error' => $sc_error !== false ? $sc_error : 'N/A',
-            'pes_error' => $pes_error !== false ? $pes_error : 'N/A',
-            'pcr_error' => $pcr_error !== false ? $pcr_error : 'N/A',
-            'bitrate' => $bitrate !== false ? $bitrate : 'N/A',
-            'onair' => $onair !== false ? $onair : 'N/A',
-            'timestamp' => $timestamp !== false ? $timestamp : 'N/A',
-        ];
+    $sc_error = memcache_get($memcache, "$prefix.sc_error");
 
-        if ($entry['onair']) {
-            $activeInputData = $entry;
-            break;
-        }
-
-        if ($input === 1 && $activeInputData === null) {
-            $activeInputData = $entry;
-        }
+    
+    if ($sc_error === false) {
+        $input++;
+        continue;
     }
 
-    if ($activeInputData !== null) {
-        $data[] = $activeInputData;
+    $entry = [
+        'name' => $name,
+        'input' => $input,
+        'sc_error' => $sc_error ?: 'N/A',
+        'pes_error' => memcache_get($memcache, "$prefix.pes_error") ?: 'N/A',
+        'pcr_error' => memcache_get($memcache, "$prefix.pcr_error") ?: 'N/A',
+        'bitrate' => memcache_get($memcache, "$prefix.bitrate") ?: 'N/A',
+        'onair' => memcache_get($memcache, "$prefix.onair") ?: false,
+        'timestamp' => memcache_get($memcache, "$prefix.timestamp") ?: 'N/A',
+    ];
+
+    $inputData[$input] = $entry;
+    $input++;
+}
+
+
+    if ($isAdmin) {
+        foreach ($inputData as $entry) {
+            $data[] = $entry;
+        }
+    } else {
+        foreach ($inputData as $entry) {
+            if ($entry['onair']) {
+                $data[] = $entry;
+            }
+        }
     }
 }
 ?>
+
+
 
 <!DOCTYPE html>
 <html lang="ru">
@@ -104,7 +115,7 @@ foreach ($channels as $id => $name) {
             <?php foreach ($data as $row): ?>
                 <tr>
                     <td><?= htmlspecialchars($row['name']) ?></td>
-                    <td>Input <?= $row['input'] ?></td>
+                    <td><?= $row['input'] ?></td>
 
                     <td class="<?= getStatusClass($row['sc_error']) ?>">
                         <?= $row['sc_error'] ?>
