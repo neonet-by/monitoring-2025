@@ -13,9 +13,17 @@ $isAdmin = isset($user['role']) && $user['role'] === 'admin';
 $memcache = new Memcache();
 $memcache->connect('localhost', 11211);
 
+function __log($msg) {
+    $logFile = __DIR__ . '/ast-mon.log';
+    if (is_array($msg)) {
+        $msg = json_encode($msg, JSON_UNESCAPED_UNICODE);
+    }
+    $logMessage = date("Y-m-d H:i:s") . " " . getmypid() . "  " . $msg . PHP_EOL;
+    file_put_contents($logFile, $logMessage, FILE_APPEND);
+}
+
 function getStatusClass($value) {
     if ($value === 'N/A') return 'neutral';
-    $value = (int)$value;
     if ($value > 1000) return 'critical';
     if ($value > 100) return 'warning';
     return 'normal';
@@ -32,50 +40,51 @@ $data = [];
 foreach ($channels as $id => $name) {
     $inputData = [];
     $input = 1;
+    $maxInputs = 5;
 
-    $maxInputs = 5; 
-while ($input <= $maxInputs) {
-    $prefix = "channel.{$id}.{$input}";
+    while ($input <= $maxInputs) {
+        $prefix = "channel.{$id}.{$input}";
 
-    $sc_error = memcache_get($memcache, "$prefix.sc_error");
+        $metrics = ['sc_error', 'pes_error', 'pcr_error', 'bitrate', 'onair', 'timestamp'];
+        $values = [];
 
-    
-    if ($sc_error === false) {
+        foreach ($metrics as $metric) {
+            $key = "$prefix.$metric";
+            $new = memcache_get($memcache, $key);
+
+            if (in_array($metric, ['sc_error', 'pes_error', 'pcr_error'])) {
+                $old = $memcache->get("prev.$key");
+                if ($old !== false && $old !== $new) {
+                    __log("Изменение $key: $old → $new");
+                }
+                $memcache->set("prev.$key", $new, 0, 3600);
+            }
+
+            $values[$metric] = $new;
+        }
+
+        $entry = [
+            'name' => $name,
+            'input' => $input,
+            'sc_error' => $values['sc_error'] ?: 'N/A',
+            'pes_error' => $values['pes_error'] ?: 'N/A',
+            'pcr_error' => $values['pcr_error'] ?: 'N/A',
+            'bitrate' => $values['bitrate'] ?: 'N/A',
+            'onair' => $values['onair'] ?: false,
+            'timestamp' => $values['timestamp'] ?: 'N/A',
+        ];
+
+        $inputData[$input] = $entry;
         $input++;
-        continue;
     }
 
-    $entry = [
-        'name' => $name,
-        'input' => $input,
-        'sc_error' => $sc_error ?: 'N/A',
-        'pes_error' => memcache_get($memcache, "$prefix.pes_error") ?: 'N/A',
-        'pcr_error' => memcache_get($memcache, "$prefix.pcr_error") ?: 'N/A',
-        'bitrate' => memcache_get($memcache, "$prefix.bitrate") ?: 'N/A',
-        'onair' => memcache_get($memcache, "$prefix.onair") ?: false,
-        'timestamp' => memcache_get($memcache, "$prefix.timestamp") ?: 'N/A',
-    ];
-
-    $inputData[$input] = $entry;
-    $input++;
-}
-
-
-    if ($isAdmin) {
-        foreach ($inputData as $entry) {
+    foreach ($inputData as $entry) {
+        if ($isAdmin || $entry['onair']) {
             $data[] = $entry;
-        }
-    } else {
-        foreach ($inputData as $entry) {
-            if ($entry['onair']) {
-                $data[] = $entry;
-            }
         }
     }
 }
 ?>
-
-
 
 <!DOCTYPE html>
 <html lang="ru">
