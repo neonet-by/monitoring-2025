@@ -40,27 +40,27 @@ $data = [];
 foreach ($channels as $id => $name) {
     $inputData = [];
     $input = 1;
-    $maxInputs = 999999;
+    $maxAttemptsWithoutData = 5; 
+    $emptyAttempts = 0;
 
-    while ($input <= $maxInputs) {
+    while ($emptyAttempts < $maxAttemptsWithoutData) {
         $prefix = "channel.{$id}.{$input}";
+        $key = "$prefix.sc_error"; 
+        $new = memcache_get($memcache, $key);
 
+        if ($new === false || $new === null) {
+            $emptyAttempts++;
+            $input++;
+            continue;
+        }
+
+        $emptyAttempts = 0;
         $metrics = ['sc_error', 'pes_error', 'pcr_error', 'bitrate', 'onair', 'timestamp'];
         $values = [];
 
         foreach ($metrics as $metric) {
             $key = "$prefix.$metric";
-            $new = memcache_get($memcache, $key);
-
-            if (in_array($metric, ['sc_error', 'pes_error', 'pcr_error'])) {
-                $old = $memcache->get("prev.$key");
-                if ($old !== false && $old !== $new) {
-                    __log("Изменение $key: $old → $new");
-                }
-                $memcache->set("prev.$key", $new, 0, 3600);
-            }
-
-            $values[$metric] = $new;
+            $values[$metric] = memcache_get($memcache, $key);
         }
 
         $entry = [
