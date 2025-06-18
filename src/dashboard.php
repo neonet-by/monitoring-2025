@@ -40,7 +40,7 @@ $data = [];
 foreach ($channels as $id => $name) {
     $inputData = [];
     $input = 1;
-    $maxInputs = 5;
+    $maxInputs = 999999;
 
     while ($input <= $maxInputs) {
         $prefix = "channel.{$id}.{$input}";
@@ -66,10 +66,10 @@ foreach ($channels as $id => $name) {
         $entry = [
             'name' => $name,
             'input' => $input,
-            'sc_error' => $values['sc_error'] ?: 'N/A',
-            'pes_error' => $values['pes_error'] ?: 'N/A',
-            'pcr_error' => $values['pcr_error'] ?: 'N/A',
-            'bitrate' => $values['bitrate'] ?: 'N/A',
+            'sc_error' => ($values['sc_error'] === null || $values['sc_error'] === false) ? 'N/A' : $values['sc_error'],
+            'pes_error' => ($values['pes_error'] === null || $values['pes_error'] === false) ? 'N/A' : $values['pes_error'],
+            'pcr_error' => ($values['pcr_error'] === null || $values['pcr_error'] === false) ? 'N/A' : $values['pcr_error'],
+            'bitrate' => ($values['bitrate'] === null || $values['bitrate'] === false) ? 'N/A' : $values['bitrate'],
             'onair' => $values['onair'] ?: false,
             'timestamp' => $values['timestamp'] ?: 'N/A',
         ];
