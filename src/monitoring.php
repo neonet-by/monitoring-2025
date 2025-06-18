@@ -46,35 +46,46 @@ if (json_last_error() !== JSON_ERROR_NONE) {
 // сохранение данных в мемхэш
 if (!empty($data)) {
     try {
- 
         if (isset($data[0]) && is_array($data[0])) {
             $data = $data[0];
         }
 
         if (isset($data['channel_id']) && isset($data['input_id'])) {
             $prefix = "channel.{$data['channel_id']}.{$data['input_id']}";
-
             $metrics = [
-                'sc_error', 'pes_error', 'pcr_error', 
+                'sc_error', 'pes_error', 'pcr_error',
                 'cc_error', 'bitrate', 'packets', 'onair'
             ];
 
+            $changes = [];
+
             foreach ($metrics as $metric) {
                 if (isset($data[$metric])) {
-                    $memcache->set("$prefix.$metric", $data[$metric], 0, 3600);
+                    $key = "$prefix.$metric";
+                    $newValue = $data[$metric];
+                    $oldValue = $memcache->get($key);
+
+                    if ($oldValue !== $newValue) {
+                        $changes[$metric] = ['old' => $oldValue, 'new' => $newValue];
+                        $memcache->set($key, $newValue, 0, 3600);
+                    }
                 }
             }
 
-            $memcache->set("$prefix.timestamp", time(), 0, 3600);
+            $timestampKey = "$prefix.timestamp";
+            $timestamp = time();
+            $memcache->set($timestampKey, $timestamp, 0, 3600);
 
-            __log("Data saved for channel {$data['channel_id']} input {$data['input_id']}");
+            if (!empty($changes)) {
+                __log("Changes for channel {$data['channel_id']} input {$data['input_id']}: " . json_encode($changes, JSON_UNESCAPED_UNICODE));
+            } else {
+                __log("No changes for channel {$data['channel_id']} input {$data['input_id']}");
+            }
         }
-
 
     } catch (Exception $e) {
         http_response_code(500);
         __log("Processing error: " . $e->getMessage());
-
     }
 }
  else {

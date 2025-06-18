@@ -13,15 +13,6 @@ $isAdmin = isset($user['role']) && $user['role'] === 'admin';
 $memcache = new Memcache();
 $memcache->connect('localhost', 11211);
 
-function __log($msg) {
-    $logFile = __DIR__ . '/ast-mon.log';
-    if (is_array($msg)) {
-        $msg = json_encode($msg, JSON_UNESCAPED_UNICODE);
-    }
-    $logMessage = date("Y-m-d H:i:s") . " " . getmypid() . "  " . $msg . PHP_EOL;
-    file_put_contents($logFile, $logMessage, FILE_APPEND);
-}
-
 function getStatusClass($value) {
     if ($value === 'N/A') return 'neutral';
     if ($value > 1000) return 'critical';
