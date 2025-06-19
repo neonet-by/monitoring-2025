@@ -60,7 +60,7 @@ foreach ($channels as $id => $name) {
             'sc_error' => ($values['sc_error'] === null || $values['sc_error'] === false) ? 'N/A' : $values['sc_error'],
             'pes_error' => ($values['pes_error'] === null || $values['pes_error'] === false) ? 'N/A' : $values['pes_error'],
             'pcr_error' => ($values['pcr_error'] === null || $values['pcr_error'] === false) ? 'N/A' : $values['pcr_error'],
-            'bitrate' => ($values['bitrate'] === null || $values['bitrate'] === false) ? 'N/A' : $values['bitrate'],
+            'bitrate' => is_null($values['bitrate']) ? 'N/A' : $values['bitrate'],
             'onair' => $values['onair'] ?: false,
             'timestamp' => $values['timestamp'] ?: 'N/A',
         ];

@@ -10,7 +10,6 @@ function __log($msg) {
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
 
-
 // проверка на Post запрос
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -18,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-// подключение к мемхэш
+// подключение к мемкеш
 try {
     $memcache = new Memcache();
     if (!$memcache->connect('localhost', 11211)) {
@@ -29,7 +28,6 @@ try {
     __log("Memcache error: " . $e->getMessage());
     exit;
 }
-
 
 $rawInput = file_get_contents('php://input');
 __log("Raw input: " . $rawInput);
@@ -43,7 +41,7 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
-// сохранение данных в мемхэш
+// сохранение данных в мемкеш
 if (!empty($data)) {
     try {
         if (isset($data[0]) && is_array($data[0])) {
@@ -51,7 +49,9 @@ if (!empty($data)) {
         }
 
         if (isset($data['channel_id']) && isset($data['input_id'])) {
-            $prefix = "channel.{$data['channel_id']}.{$data['input_id']}";
+            $channelId = $data['channel_id'];
+            $inputId = $data['input_id'];
+            $prefix = "channel.{$channelId}.{$inputId}";
             $metrics = [
                 'sc_error', 'pes_error', 'pcr_error',
                 'cc_error', 'bitrate', 'packets', 'onair'
@@ -76,10 +76,14 @@ if (!empty($data)) {
             $timestamp = time();
             $memcache->set($timestampKey, $timestamp, 0, 3600);
 
+            // последний инпут
+            $lastInputKey = "channel{$channelId}.lastInput";
+            $memcache->set($lastInputKey, $inputId, 0, 3600);
+
             if (!empty($changes)) {
-                __log("Changes for channel {$data['channel_id']} input {$data['input_id']}: " . json_encode($changes, JSON_UNESCAPED_UNICODE));
+                __log("Changes for channel {$channelId} input {$inputId}: " . json_encode($changes, JSON_UNESCAPED_UNICODE));
             } else {
-                __log("No changes for channel {$data['channel_id']} input {$data['input_id']}");
+                __log("No changes for channel {$channelId} input {$inputId}");
             }
         }
 
@@ -87,8 +91,7 @@ if (!empty($data)) {
         http_response_code(500);
         __log("Processing error: " . $e->getMessage());
     }
-}
- else {
+} else {
     http_response_code(400);
     __log("Empty data received");
 }
