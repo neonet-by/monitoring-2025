@@ -35,6 +35,33 @@ __log("Raw input: " . $rawInput);
 // декодер
 $data = json_decode($rawInput, true);
 
+if (isset($data[0]['dvb'])) {
+    foreach ($data as $entry) {
+        $dvb = $entry['dvb'];
+        $hostname = $entry['hostname'] ?? 'unknown';
+        $timestamp = $entry['timestamp'] ?? time();
+        $dvbId = $dvb['id'] ?? uniqid('dvb_');
+
+        // Ключ сохраняем по ID или hostname
+        $keyPrefix = "dvbconfig.{$dvbId}";
+
+        $memcache->set("{$keyPrefix}.name", $dvb['name'], 0, 3600);
+        $memcache->set("{$keyPrefix}.frequency", $dvb['frequency'], 0, 3600);
+        $memcache->set("{$keyPrefix}.symbolrate", $dvb['symbolrate'], 0, 3600);
+        $memcache->set("{$keyPrefix}.polarization", $dvb['polarization'], 0, 3600);
+        $memcache->set("{$keyPrefix}.adapter", $dvb['adapter'], 0, 3600);
+        $memcache->set("{$keyPrefix}.device", $dvb['device'], 0, 3600);
+        $memcache->set("{$keyPrefix}.hostname", $hostname, 0, 3600);
+        $memcache->set("{$keyPrefix}.timestamp", $timestamp, 0, 3600);
+
+        __log("Saved DVB config for ID {$dvbId}");
+    }
+
+    http_response_code(200);
+    exit;
+}
+
+
 if (json_last_error() !== JSON_ERROR_NONE) {
     http_response_code(400);
     __log("Invalid JSON: " . json_last_error_msg());
