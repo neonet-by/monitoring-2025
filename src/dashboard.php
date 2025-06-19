@@ -93,51 +93,95 @@ foreach ($channels as $id => $name) {
         .status { font-weight: bold; }
         .on-air { color: green; }
         .off-air { color: red; }
+
+        .tabs { margin-top: 20px; }
+        .tabs button {
+            margin-right: 10px;
+            padding: 8px 16px;
+            cursor: pointer;
+            border: 1px solid #aaa;
+            background-color: #f8f9fa;
+        }
+        .tabs button.active {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .table-section { display: none; }
+        .table-section.active { display: block; }
     </style>
 </head>
 <body>
     <p>Пользователь: <strong><?= htmlspecialchars($user['username']) ?></strong></p>
 
-    <table class="channel-table">
-        <thead>
-            <tr>
-                <th>Канал</th>
-                <th>Вход</th>
-                <th>SC Errors</th>
-                <th>PES Errors</th>
-                <th>PCR Errors</th>
-                <th>Bitrate</th>
-                <th>Статус</th>
-                <th>Последнее обновление</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($data as $row): ?>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTable('table1', this)">Таблица 1</button>
+        <button class="tab-btn" onclick="showTable('table2', this)">Таблица 2</button>
+    </div>
+
+    <div id="table1" class="table-section active">
+        <table class="channel-table">
+            <thead>
                 <tr>
-                    <td><?= htmlspecialchars($row['name']) ?></td>
-                    <td><?= $row['input'] ?></td>
-
-                    <td class="<?= getStatusClass($row['sc_error']) ?>">
-                        <?= $row['sc_error'] ?>
-                    </td>
-
-                    <td class="<?= getStatusClass($row['pes_error']) ?>">
-                        <?= $row['pes_error'] ?>
-                    </td>
-
-                    <td class="<?= getStatusClass($row['pcr_error']) ?>">
-                        <?= $row['pcr_error'] ?>
-                    </td>
-
-                    <td><?= $row['bitrate'] ?> kbps</td>
-
-                    <td class="status <?= $row['onair'] ? 'on-air' : 'off-air' ?>">
-                        <?= $row['onair'] ? 'ON AIR' : 'OFF' ?>
-                    </td>
-                    <td><?= is_numeric($row['timestamp']) ? date('H:i:s', $row['timestamp']) : 'N/A' ?></td>
+                    <th>Канал</th>
+                    <th>Вход</th>
+                    <th>SC Errors</th>
+                    <th>PES Errors</th>
+                    <th>PCR Errors</th>
+                    <th>Bitrate</th>
+                    <th>Статус</th>
+                    <th>Последнее обновление</th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                <?php foreach ($data as $row): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($row['name']) ?></td>
+                        <td><?= $row['input'] ?></td>
+                        <td class="<?= getStatusClass($row['sc_error']) ?>"><?= $row['sc_error'] ?></td>
+                        <td class="<?= getStatusClass($row['pes_error']) ?>"><?= $row['pes_error'] ?></td>
+                        <td class="<?= getStatusClass($row['pcr_error']) ?>"><?= $row['pcr_error'] ?></td>
+                        <td><?= $row['bitrate'] ?> kbps</td>
+                        <td class="status <?= $row['onair'] ? 'on-air' : 'off-air' ?>"><?= $row['onair'] ? 'ON AIR' : 'OFF' ?></td>
+                        <td><?= is_numeric($row['timestamp']) ? date('H:i:s', $row['timestamp']) : 'N/A' ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <div id="table2" class="table-section">
+        <table class="channel-table">
+            <thead>
+                <tr>
+                    <th>Название</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                </tr>
+            </thead>
+            <tbody>
+            
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        function showTable(tableId, btn) {
+            document.querySelectorAll('.table-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(tableId).classList.add('active');
+
+            document.querySelectorAll('.tab-btn').forEach(button => {
+                button.classList.remove('active');
+            });
+            btn.classList.add('active');
+        }
+    </script>
 </body>
 </html>
+
