@@ -57,9 +57,9 @@ foreach ($channels as $id => $name) {
         $entry = [
             'name' => $name,
             'input' => $input,
-            'sc_error' => ($values['sc_error'] === null || $values['sc_error'] === false) ? 'N/A' : $values['sc_error'],
-            'pes_error' => ($values['pes_error'] === null || $values['pes_error'] === false) ? 'N/A' : $values['pes_error'],
-            'pcr_error' => ($values['pcr_error'] === null || $values['pcr_error'] === false) ? 'N/A' : $values['pcr_error'],
+            'sc_error' => ($values['sc_error'] == null || $values['sc_error'] == false) ? 'N/A' : $values['sc_error'],
+            'pes_error' => ($values['pes_error'] == null || $values['pes_error'] == false) ? 'N/A' : $values['pes_error'],
+            'pcr_error' => ($values['pcr_error'] == null || $values['pcr_error'] == false) ? 'N/A' : $values['pcr_error'],
             'bitrate' => is_null($values['bitrate']) ? 'N/A' : $values['bitrate'],
             'onair' => $values['onair'] ?: false,
             'timestamp' => $values['timestamp'] ?: 'N/A',
@@ -75,6 +75,43 @@ foreach ($channels as $id => $name) {
         }
     }
 }
+$dvbChannels = [
+    'a001' => 'DVB Channel 1',
+];
+
+$dvbData = [];
+
+
+foreach ($dvbChannels as $dvbId => $dvbName) {
+    $prefix = "dvbmetrics.{$dvbId}";
+
+    $metrics = ['count', 'unc', 'signal', 'ber', 'status', 'snr', 'timestamp'];
+    $values = [];
+    foreach ($metrics as $metric) {
+    $val = memcache_get($memcache, "{$prefix}.{$metric}");
+
+    if ($metric === 'timestamp' && is_numeric($val)) {
+        $val = date('H:i:s', $val);
+    }
+
+    $values[$metric] = $val !== false && $val !== null ? $val : 'N/A';
+}
+
+
+    $dvbData[] = [
+        'id' => $dvbId,
+        'name' => $dvbName,
+        'count' => $values['count'],
+        'unc' => $values['unc'],
+        'signal' => $values['signal'],
+        'ber' => $values['ber'],
+        'status' => $values['status'],
+        'snr' => $values['snr'],
+        'timestamp' => $values['timestamp'],
+    ];
+}
+
+
 ?>
 
 <!DOCTYPE html>
@@ -151,23 +188,39 @@ foreach ($channels as $id => $name) {
     </div>
 
     <div id="table2" class="table-section">
-        <table class="channel-table">
-            <thead>
+    <table class="channel-table">
+        <thead>
+            <tr>
+                <th>DVB ID</th>
+                <th>Count</th>
+                <th>Unc</th>
+                <th>Signal</th>
+                <th>BER</th>
+                <th>Status</th>
+                <th>SNR</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($dvbData as $row): ?>
                 <tr>
-                    <th>Название</th>
-                    <th>Пример данных</th>
-                    <th>Пример данных</th>
-                    <th>Пример данных</th>
-                    <th>Пример данных</th>
-                    <th>Пример данных</th>
-                    <th>Пример данных</th>
+                    <td><?= htmlspecialchars($row['id']) ?></td>
+                    <td><?= htmlspecialchars($row['count']) ?></td>
+                    <td><?= htmlspecialchars($row['unc']) ?></td>
+                    <td><?= htmlspecialchars($row['signal']) ?></td>
+                    <td><?= htmlspecialchars($row['ber']) ?></td>
+                    <td><?= htmlspecialchars($row['status']) ?></td>
+                    <td><?= htmlspecialchars($row['snr']) ?></td>
+                   <td><?= htmlspecialchars($row['timestamp']) ?></td>
+
+
+
                 </tr>
-            </thead>
-            <tbody>
-            
-            </tbody>
-        </table>
-    </div>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+
 
     <script>
         function showTable(tableId, btn) {
