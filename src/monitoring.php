@@ -10,14 +10,12 @@ function __log($msg) {
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
 
-// проверка на Post запрос
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     __log("Error: Only POST requests are allowed");
     exit;
 }
 
-// подключение к мемкеш
 try {
     $memcache = new Memcache();
     if (!$memcache->connect('localhost', 11211)) {
@@ -32,8 +30,14 @@ try {
 $rawInput = file_get_contents('php://input');
 __log("Raw input: " . $rawInput);
 
-// декодер
 $data = json_decode($rawInput, true);
+
+if (json_last_error() !== JSON_ERROR_NONE) {
+    http_response_code(400);
+    __log("Invalid JSON: " . json_last_error_msg());
+    exit;
+}
+
 
 if (isset($data[0]['dvb'])) {
     foreach ($data as $entry) {
@@ -42,7 +46,6 @@ if (isset($data[0]['dvb'])) {
         $timestamp = $entry['timestamp'] ?? time();
         $dvbId = $dvb['id'] ?? uniqid('dvb_');
 
-        // Ключ сохраняем по ID или hostname
         $keyPrefix = "dvbconfig.{$dvbId}";
 
         $memcache->set("{$keyPrefix}.name", $dvb['name'], 0, 3600);
@@ -56,19 +59,30 @@ if (isset($data[0]['dvb'])) {
 
         __log("Saved DVB config for ID {$dvbId}");
     }
+    http_response_code(200);
+    exit;
+}
+
+if (isset($data[0]['dvb_id'])) {
+    foreach ($data as $entry) {
+        $dvbId = $entry['dvb_id'];
+        $keyPrefix = "dvbmetrics.{$dvbId}";
+
+        $fields = ['count', 'unc', 'signal', 'ber', 'timestamp', 'status', 'snr'];
+        foreach ($fields as $field) {
+            if (isset($entry[$field])) {
+                $memcache->set("{$keyPrefix}.{$field}", $entry[$field], 0, 3600);
+            }
+        }
+
+        __log("Saved DVB metrics for ID {$dvbId}");
+    }
 
     http_response_code(200);
     exit;
 }
 
 
-if (json_last_error() !== JSON_ERROR_NONE) {
-    http_response_code(400);
-    __log("Invalid JSON: " . json_last_error_msg());
-    exit;
-}
-
-// сохранение данных в мемкеш
 if (!empty($data)) {
     try {
         if (isset($data[0]) && is_array($data[0])) {
@@ -103,7 +117,6 @@ if (!empty($data)) {
             $timestamp = time();
             $memcache->set($timestampKey, $timestamp, 0, 3600);
 
-            // последний инпут
             $lastInputKey = "channel{$channelId}.lastInput";
             $memcache->set($lastInputKey, $inputId, 0, 3600);
 
@@ -113,13 +126,16 @@ if (!empty($data)) {
                 __log("No changes for channel {$channelId} input {$inputId}");
             }
         }
-
+        http_response_code(200);
+        exit;
     } catch (Exception $e) {
         http_response_code(500);
         __log("Processing error: " . $e->getMessage());
+        exit;
     }
-} else {
-    http_response_code(400);
-    __log("Empty data received");
 }
+
+http_response_code(400);
+__log("Empty or unsupported data received");
+
 ?>
