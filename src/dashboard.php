@@ -26,7 +26,6 @@ $channels = [
     'a003' => 'TEST'
 ];
 
-// Get channel data
 $data = [];
 
 foreach ($channels as $id => $name) {
@@ -76,48 +75,6 @@ foreach ($channels as $id => $name) {
         }
     }
 }
-
-// Get DVB devices data
-$dvbDevices = [];
-$allKeys = [];
-$slabs = $memcache->getExtendedStats('slabs');
-
-foreach ($slabs as $server => $slab) {
-    if (is_array($slab)) {
-        foreach ($slab as $slabId => $slabMeta) {
-            if ($slabId > 0 && isset($slabMeta['chunk_size'])) {
-                $cachedump = $memcache->getExtendedStats('cachedump', (int)$slabId, 1000);
-                foreach ($cachedump as $server => $entries) {
-                    if (is_array($entries)) {
-                        foreach ($entries as $key => $entry) {
-                            if (strpos($key, 'dvbconfig.') === 0) {
-                                $allKeys[] = $key;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// Group keys by device ID
-$deviceKeys = [];
-foreach ($allKeys as $key) {
-    $parts = explode('.', $key);
-    $deviceId = $parts[1];
-    $property = $parts[2];
-    $deviceKeys[$deviceId][$property] = $key;
-}
-
-// Get all properties for each device
-foreach ($deviceKeys as $deviceId => $keys) {
-    $device = ['id' => $deviceId];
-    foreach ($keys as $property => $key) {
-        $device[$property] = $memcache->get($key);
-    }
-    $dvbDevices[] = $device;
-}
 ?>
 
 <!DOCTYPE html>
@@ -158,8 +115,8 @@ foreach ($deviceKeys as $deviceId => $keys) {
     <p>Пользователь: <strong><?= htmlspecialchars($user['username']) ?></strong></p>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="showTable('table1', this)">Мониторинг каналов</button>
-        <button class="tab-btn" onclick="showTable('table2', this)">DVB устройства</button>
+        <button class="tab-btn active" onclick="showTable('table1', this)">Таблица 1</button>
+        <button class="tab-btn" onclick="showTable('table2', this)">Таблица 2</button>
     </div>
 
     <div id="table1" class="table-section active">
@@ -197,31 +154,17 @@ foreach ($deviceKeys as $deviceId => $keys) {
         <table class="channel-table">
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>Имя</th>
-                    <th>Частота</th>
-                    <th>Символьная скорость</th>
-                    <th>Поляризация</th>
-                    <th>Адаптер</th>
-                    <th>Устройство</th>
-                    <th>Хост</th>
-                    <th>Последнее обновление</th>
+                    <th>Название</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
+                    <th>Пример данных</th>
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($dvbDevices as $device): ?>
-                    <tr>
-                        <td><?= htmlspecialchars($device['id'] ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($device['name'] ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($device['frequency'] ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($device['symbolrate'] ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($device['polarization'] ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($device['adapter'] ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($device['device'] ?? 'N/A') ?></td>
-                        <td><?= htmlspecialchars($device['hostname'] ?? 'N/A') ?></td>
-                        <td><?= isset($device['timestamp']) ? date('Y-m-d H:i:s', $device['timestamp']) : 'N/A' ?></td>
-                    </tr>
-                <?php endforeach; ?>
+            
             </tbody>
         </table>
     </div>
@@ -241,3 +184,4 @@ foreach ($deviceKeys as $deviceId => $keys) {
     </script>
 </body>
 </html>
+
