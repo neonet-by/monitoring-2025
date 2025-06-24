@@ -20,6 +20,11 @@ function getStatusClass($value) {
     return 'normal';
 }
 
+function getMemcacheValue($memcache, $key) {
+    $value = $memcache->get($key);
+    return ($value === false || $value === null) ? 'N/A' : $value;
+}
+
 $channels = [
     'a002' => 'RTG TV',
     'a004' => 'DRIVE',
@@ -37,9 +42,9 @@ foreach ($channels as $id => $name) {
     while ($emptyAttempts < $maxAttemptsWithoutData) {
         $prefix = "channel.{$id}.{$input}";
         $key = "$prefix.sc_error"; 
-        $new = memcache_get($memcache, $key);
+        $new = $memcache->get($key);
 
-        if ($new === false || $new === null) {
+        if ($new === false && $new !== 0 && $new !== '0') { 
             $emptyAttempts++;
             $input++;
             continue;
@@ -51,18 +56,28 @@ foreach ($channels as $id => $name) {
 
         foreach ($metrics as $metric) {
             $key = "$prefix.$metric";
-            $values[$metric] = memcache_get($memcache, $key);
+            $val = $memcache->get($key);
+            
+            
+            if ($metric === 'onair') {
+                $values[$metric] = ($val === false || $val === null) ? false : (bool)$val;
+            } elseif ($metric === 'timestamp') {
+                $values[$metric] = ($val === false || $val === null) ? 'N/A' : $val;
+            } else {
+                
+                $values[$metric] = ($val === false && $val !== 0 && $val !== '0') ? 'N/A' : $val;
+            }
         }
 
         $entry = [
             'name' => $name,
             'input' => $input,
-            'sc_error' => ($values['sc_error'] == null || $values['sc_error'] == false) ? 'N/A' : $values['sc_error'],
-            'pes_error' => ($values['pes_error'] == null || $values['pes_error'] == false) ? 'N/A' : $values['pes_error'],
-            'pcr_error' => ($values['pcr_error'] == null || $values['pcr_error'] == false) ? 'N/A' : $values['pcr_error'],
-            'bitrate' => is_null($values['bitrate']) ? 'N/A' : $values['bitrate'],
-            'onair' => $values['onair'] ?: false,
-            'timestamp' => $values['timestamp'] ?: 'N/A',
+            'sc_error' => $values['sc_error'],
+            'pes_error' => $values['pes_error'],
+            'pcr_error' => $values['pcr_error'],
+            'bitrate' => $values['bitrate'],
+            'onair' => $values['onair'],
+            'timestamp' => $values['timestamp'],
         ];
 
         $inputData[$input] = $entry;
@@ -75,28 +90,29 @@ foreach ($channels as $id => $name) {
         }
     }
 }
+
 $dvbChannels = [
     'a001' => 'DVB Channel 1',
 ];
 
 $dvbData = [];
 
-
 foreach ($dvbChannels as $dvbId => $dvbName) {
     $prefix = "dvbmetrics.{$dvbId}";
 
     $metrics = ['count', 'unc', 'signal', 'ber', 'status', 'snr', 'timestamp'];
     $values = [];
+    
     foreach ($metrics as $metric) {
-    $val = memcache_get($memcache, "{$prefix}.{$metric}");
-
-    if ($metric === 'timestamp' && is_numeric($val)) {
-        $val = date('H:i:s', $val);
+        $val = $memcache->get("{$prefix}.{$metric}");
+        
+        if ($metric === 'timestamp') {
+            $values[$metric] = ($val === false || $val === null) ? 'N/A' : date('H:i:s', $val);
+        } else {
+            
+            $values[$metric] = ($val === false && $val !== 0 && $val !== '0') ? 'N/A' : $val;
+        }
     }
-
-    $values[$metric] = $val !== false && $val !== null ? $val : 'N/A';
-}
-
 
     $dvbData[] = [
         'id' => $dvbId,
@@ -110,8 +126,6 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
         'timestamp' => $values['timestamp'],
     ];
 }
-
-
 ?>
 
 <!DOCTYPE html>
@@ -152,8 +166,8 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     <p>Пользователь: <strong><?= htmlspecialchars($user['username']) ?></strong></p>
 
     <div class="tabs">
-        <button class="tab-btn active" onclick="showTable('table1', this)">Таблица 1</button>
-        <button class="tab-btn" onclick="showTable('table2', this)">Таблица 2</button>
+        <button class="tab-btn active" onclick="showTable('table1', this)">Основные каналы</button>
+        <button class="tab-btn" onclick="showTable('table2', this)">DVB устройства</button>
     </div>
 
     <div id="table1" class="table-section active">
@@ -175,10 +189,10 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
                     <tr>
                         <td><?= htmlspecialchars($row['name']) ?></td>
                         <td><?= $row['input'] ?></td>
-                        <td class="<?= getStatusClass($row['sc_error']) ?>"><?= $row['sc_error'] ?></td>
-                        <td class="<?= getStatusClass($row['pes_error']) ?>"><?= $row['pes_error'] ?></td>
-                        <td class="<?= getStatusClass($row['pcr_error']) ?>"><?= $row['pcr_error'] ?></td>
-                        <td><?= $row['bitrate'] ?> kbps</td>
+                        <td class="<?= getStatusClass($row['sc_error']) ?>"><?= $row['sc_error'] === 'N/A' ? 'N/A' : (int)$row['sc_error'] ?></td>
+                        <td class="<?= getStatusClass($row['pes_error']) ?>"><?= $row['pes_error'] === 'N/A' ? 'N/A' : (int)$row['pes_error'] ?></td>
+                        <td class="<?= getStatusClass($row['pcr_error']) ?>"><?= $row['pcr_error'] === 'N/A' ? 'N/A' : (int)$row['pcr_error'] ?></td>
+                        <td><?= $row['bitrate'] === 'N/A' ? 'N/A' : (int)$row['bitrate'] ?> kbps</td>
                         <td class="status <?= $row['onair'] ? 'on-air' : 'off-air' ?>"><?= $row['onair'] ? 'ON AIR' : 'OFF' ?></td>
                         <td><?= is_numeric($row['timestamp']) ? date('H:i:s', $row['timestamp']) : 'N/A' ?></td>
                     </tr>
@@ -188,39 +202,37 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     </div>
 
     <div id="table2" class="table-section">
-    <table class="channel-table">
-        <thead>
-            <tr>
-                <th>DVB ID</th>
-                <th>Count</th>
-                <th>Unc</th>
-                <th>Signal</th>
-                <th>BER</th>
-                <th>Status</th>
-                <th>SNR</th>
-                <th>Timestamp</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($dvbData as $row): ?>
+        <table class="channel-table">
+            <thead>
                 <tr>
-                    <td><?= htmlspecialchars($row['id']) ?></td>
-                    <td><?= htmlspecialchars($row['count']) ?></td>
-                    <td><?= htmlspecialchars($row['unc']) ?></td>
-                    <td><?= htmlspecialchars($row['signal']) ?></td>
-                    <td><?= htmlspecialchars($row['ber']) ?></td>
-                    <td><?= htmlspecialchars($row['status']) ?></td>
-                    <td><?= htmlspecialchars($row['snr']) ?></td>
-                   <td><?= htmlspecialchars($row['timestamp']) ?></td>
-
-
-
+                    <th>DVB ID</th>
+                    <th>Название</th>
+                    <th>Count</th>
+                    <th>Unc</th>
+                    <th>Signal</th>
+                    <th>BER</th>
+                    <th>Status</th>
+                    <th>SNR</th>
+                    <th>Timestamp</th>
                 </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
-
+            </thead>
+            <tbody>
+                <?php foreach ($dvbData as $row): ?>
+                    <tr>
+                        <td><?= htmlspecialchars($row['id']) ?></td>
+                        <td><?= htmlspecialchars($row['name']) ?></td>
+                        <td><?= $row['count'] === 'N/A' ? 'N/A' : (int)$row['count'] ?></td>
+                        <td><?= $row['unc'] === 'N/A' ? 'N/A' : (int)$row['unc'] ?></td>
+                        <td><?= $row['signal'] === 'N/A' ? 'N/A' : (int)$row['signal'] ?></td>
+                        <td><?= $row['ber'] === 'N/A' ? 'N/A' : (float)$row['ber'] ?></td>
+                        <td><?= htmlspecialchars($row['status']) ?></td>
+                        <td><?= $row['snr'] === 'N/A' ? 'N/A' : (float)$row['snr'] ?></td>
+                        <td><?= htmlspecialchars($row['timestamp']) ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
 
     <script>
         function showTable(tableId, btn) {
@@ -237,4 +249,3 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     </script>
 </body>
 </html>
-
