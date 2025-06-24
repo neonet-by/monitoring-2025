@@ -187,6 +187,8 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     <div class="tabs">
         <button class="tab-btn active" onclick="showTable('table1', this)">Основные каналы</button>
         <button class="tab-btn" onclick="showTable('table2', this)">DVB устройства</button>
+        <button class="tab-btn" onclick="showTable('table3', this)">Входящие устройства</button>
+        
     </div>
 
     <div id="table1" class="table-section active">
@@ -223,18 +225,19 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     <div id="table2" class="table-section">
         <table class="channel-table">
             <thead>
-                <tr>
-                    <th>DVB ID</th>
-                    <th>Название</th>
-                    <th>Count</th>
-                    <th>Unc</th>
-                    <th>Signal</th>
-                    <th>BER</th>
-                    <th>Status</th>
-                    <th>SNR</th>
-                    <th>Timestamp</th>
-                </tr>
-            </thead>
+    <tr>
+        <th>DVB ID</th>
+        <th>Название</th>
+        <th>Count</th>
+        <th>Unc</th>
+        <th>Signal</th>
+        <th>BER</th>
+        <th>Status</th>
+        <th>SNR</th>
+        <th>Timestamp</th>
+    </tr>
+</thead>
+
             <tbody>
                 <?php foreach ($dvbData as $row): ?>
                     <tr>
@@ -248,10 +251,53 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
                         <td><?= $row['snr'] === 'N/A' ? 'N/A' : (float)$row['snr'] ?></td>
                         <td><?= htmlspecialchars($row['timestamp']) ?></td>
                     </tr>
+
                 <?php endforeach; ?>
             </tbody>
         </table>
     </div>
+
+    <div id="table3" class="table-section">
+    <table class="channel-table">
+        <thead>
+            <tr>
+                <th>Хост</th>
+                <th>Имя</th>
+                <th>Частота</th>
+                <th>Символьная скорость</th>
+                <th>Поляризация</th>
+                <th>Адаптер</th>
+                <th>Устройство</th>
+                <th>Тип</th>
+                <th>LOF1</th>
+                <th>LOF2</th>
+                <th>SLOF</th>
+                <th>LNB Sharing</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($dvbData as $row): ?>
+                <tr>
+                    <td><?= htmlspecialchars($row['hostname']) ?></td>
+                    <td><?= htmlspecialchars($row['name']) ?></td>
+                    <td><?= htmlspecialchars($row['frequency']) ?></td>
+                    <td><?= htmlspecialchars($row['symbolrate']) ?></td>
+                    <td><?= htmlspecialchars($row['polarization']) ?></td>
+                    <td><?= htmlspecialchars($row['adapter']) ?></td>
+                    <td><?= htmlspecialchars($row['device']) ?></td>
+                    <td><?= htmlspecialchars($row['type']) ?></td>
+                    <td><?= htmlspecialchars($row['lof1']) ?></td>
+                    <td><?= htmlspecialchars($row['lof2']) ?></td>
+                    <td><?= htmlspecialchars($row['slof']) ?></td>
+                    <td><?= htmlspecialchars($row['lnb_sharing']) ?></td>
+                    <td><?= htmlspecialchars($row['timestamp']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
+</div>
+
 
     <script>
         function showTable(tableId, btn) {
