@@ -100,7 +100,13 @@ $dvbData = [];
 foreach ($dvbChannels as $dvbId => $dvbName) {
     $prefix = "dvbmetrics.{$dvbId}";
 
-    $metrics = ['count', 'unc', 'signal', 'ber', 'status', 'snr', 'timestamp'];
+   $metrics = [
+    'count', 'unc', 'signal', 'ber', 'status', 'snr', 'timestamp',
+    'name', 'frequency', 'symbolrate', 'polarization', 'adapter', 'device', 'hostname',
+    'type', 'lof1', 'lof2', 'slof', 'lnb_sharing'
+];
+
+
     $values = [];
     
     foreach ($metrics as $metric) {
@@ -115,16 +121,29 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     }
 
     $dvbData[] = [
-        'id' => $dvbId,
-        'name' => $dvbName,
-        'count' => $values['count'],
-        'unc' => $values['unc'],
-        'signal' => $values['signal'],
-        'ber' => $values['ber'],
-        'status' => $values['status'],
-        'snr' => $values['snr'],
-        'timestamp' => $values['timestamp'],
-    ];
+    'id' => $dvbId,
+    'name' => $values['name'] ?? $dvbName,
+    'frequency' => $values['frequency'],
+    'symbolrate' => $values['symbolrate'],
+    'polarization' => $values['polarization'],
+    'adapter' => $values['adapter'],
+    'device' => $values['device'],
+    'hostname' => $values['hostname'],
+    'type' => $values['type'],
+    'lof1' => $values['lof1'],
+    'lof2' => $values['lof2'],
+    'slof' => $values['slof'],
+    'lnb_sharing' => $values['lnb_sharing'],
+    'count' => $values['count'],
+    'unc' => $values['unc'],
+    'signal' => $values['signal'],
+    'ber' => $values['ber'],
+    'status' => $values['status'],
+    'snr' => $values['snr'],
+    'timestamp' => $values['timestamp'],
+];
+
+
 }
 ?>
 
