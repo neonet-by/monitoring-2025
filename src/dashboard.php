@@ -58,13 +58,11 @@ foreach ($channels as $id => $name) {
             $key = "$prefix.$metric";
             $val = $memcache->get($key);
             
-            
             if ($metric === 'onair') {
                 $values[$metric] = ($val === false || $val === null) ? false : (bool)$val;
             } elseif ($metric === 'timestamp') {
                 $values[$metric] = ($val === false || $val === null) ? 'N/A' : $val;
             } else {
-                
                 $values[$metric] = ($val === false && $val !== 0 && $val !== '0') ? 'N/A' : $val;
             }
         }
@@ -98,52 +96,39 @@ $dvbChannels = [
 $dvbData = [];
 
 foreach ($dvbChannels as $dvbId => $dvbName) {
-    $prefix = "dvbmetrics.{$dvbId}";
-
-   $metrics = [
-    'count', 'unc', 'signal', 'ber', 'status', 'snr', 'timestamp',
-    'name', 'frequency', 'symbolrate', 'polarization', 'adapter', 'device', 'hostname',
-    'type', 'lof1', 'lof2', 'slof', 'lnb_sharing'
-];
-
-
-    $values = [];
+    // конфигурация
+    $configPrefix = "dvbconfig.{$dvbId}";
+    $configMetrics = [
+        'name', 'frequency', 'symbolrate', 'polarization', 
+        'adapter', 'device', 'hostname', 'type', 
+        'lof1', 'lof2', 'slof', 'lnb_sharing'
+    ];
     
-    foreach ($metrics as $metric) {
-        $val = $memcache->get("{$prefix}.{$metric}");
-        
+    $configValues = [];
+    foreach ($configMetrics as $metric) {
+        $val = $memcache->get("{$configPrefix}.{$metric}");
+        $configValues[$metric] = ($val === false && $val !== 0 && $val !== '0') ? 'N/A' : $val;
+    }
+
+    // метрики
+    $metricsPrefix = "dvbmetrics.{$dvbId}";
+    $dynamicMetrics = ['count', 'unc', 'signal', 'ber', 'status', 'snr', 'timestamp'];
+    
+    $dynamicValues = [];
+    foreach ($dynamicMetrics as $metric) {
+        $val = $memcache->get("{$metricsPrefix}.{$metric}");
         if ($metric === 'timestamp') {
-            $values[$metric] = ($val === false || $val === null) ? 'N/A' : date('H:i:s', $val);
+            $dynamicValues[$metric] = ($val === false || $val === null) ? 'N/A' : date('H:i:s', $val);
         } else {
-            
-            $values[$metric] = ($val === false && $val !== 0 && $val !== '0') ? 'N/A' : $val;
+            $dynamicValues[$metric] = ($val === false && $val !== 0 && $val !== '0') ? 'N/A' : $val;
         }
     }
 
-    $dvbData[] = [
-    'id' => $dvbId,
-    'name' => $values['name'] ?? $dvbName,
-    'frequency' => $values['frequency'],
-    'symbolrate' => $values['symbolrate'],
-    'polarization' => $values['polarization'],
-    'adapter' => $values['adapter'],
-    'device' => $values['device'],
-    'hostname' => $values['hostname'],
-    'type' => $values['type'],
-    'lof1' => $values['lof1'],
-    'lof2' => $values['lof2'],
-    'slof' => $values['slof'],
-    'lnb_sharing' => $values['lnb_sharing'],
-    'count' => $values['count'],
-    'unc' => $values['unc'],
-    'signal' => $values['signal'],
-    'ber' => $values['ber'],
-    'status' => $values['status'],
-    'snr' => $values['snr'],
-    'timestamp' => $values['timestamp'],
-];
-
-
+    $dvbData[] = array_merge(
+        ['id' => $dvbId],
+        $configValues,
+        $dynamicValues
+    );
 }
 ?>
 
@@ -187,8 +172,6 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     <div class="tabs">
         <button class="tab-btn active" onclick="showTable('table1', this)">Основные каналы</button>
         <button class="tab-btn" onclick="showTable('table2', this)">DVB устройства</button>
-        <button class="tab-btn" onclick="showTable('table3', this)">Входящие устройства</button>
-        
     </div>
 
     <div id="table1" class="table-section active">
@@ -225,24 +208,44 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     <div id="table2" class="table-section">
         <table class="channel-table">
             <thead>
-    <tr>
-        <th>DVB ID</th>
-        <th>Название</th>
-        <th>Count</th>
-        <th>Unc</th>
-        <th>Signal</th>
-        <th>BER</th>
-        <th>Status</th>
-        <th>SNR</th>
-        <th>Timestamp</th>
-    </tr>
-</thead>
-
+                <tr>
+                    <th rowspan="2">ID</th>
+                    <th rowspan="2">Хост</th>
+                    <th rowspan="2">Имя</th>
+                    <th colspan="4">Конфигурация</th>
+                    <th colspan="7">Метрики</th>
+                </tr>
+                <tr>
+                    <!-- Конфигурация -->
+                    <th>Частота</th>
+                    <th>Скорость</th>
+                    <th>Поляризация</th>
+                    <th>Адаптер</th>
+                    
+                    <!-- Метрики -->
+                    <th>Count</th>
+                    <th>Unc</th>
+                    <th>Signal</th>
+                    <th>BER</th>
+                    <th>Status</th>
+                    <th>SNR</th>
+                    <th>Время</th>
+                </tr>
+            </thead>
             <tbody>
                 <?php foreach ($dvbData as $row): ?>
                     <tr>
                         <td><?= htmlspecialchars($row['id']) ?></td>
+                        <td><?= htmlspecialchars($row['hostname']) ?></td>
                         <td><?= htmlspecialchars($row['name']) ?></td>
+                        
+                        <!-- Конфигурация -->
+                        <td><?= htmlspecialchars($row['frequency']) ?></td>
+                        <td><?= htmlspecialchars($row['symbolrate']) ?></td>
+                        <td><?= htmlspecialchars($row['polarization']) ?></td>
+                        <td><?= htmlspecialchars($row['adapter']) ?></td>
+                        
+                        <!-- Метрики -->
                         <td><?= $row['count'] === 'N/A' ? 'N/A' : (int)$row['count'] ?></td>
                         <td><?= $row['unc'] === 'N/A' ? 'N/A' : (int)$row['unc'] ?></td>
                         <td><?= $row['signal'] === 'N/A' ? 'N/A' : (int)$row['signal'] ?></td>
@@ -251,53 +254,10 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
                         <td><?= $row['snr'] === 'N/A' ? 'N/A' : (float)$row['snr'] ?></td>
                         <td><?= htmlspecialchars($row['timestamp']) ?></td>
                     </tr>
-
                 <?php endforeach; ?>
             </tbody>
         </table>
     </div>
-
-    <div id="table3" class="table-section">
-    <table class="channel-table">
-        <thead>
-            <tr>
-                <th>Хост</th>
-                <th>Имя</th>
-                <th>Частота</th>
-                <th>Символьная скорость</th>
-                <th>Поляризация</th>
-                <th>Адаптер</th>
-                <th>Устройство</th>
-                <th>Тип</th>
-                <th>LOF1</th>
-                <th>LOF2</th>
-                <th>SLOF</th>
-                <th>LNB Sharing</th>
-                <th>Timestamp</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach ($dvbData as $row): ?>
-                <tr>
-                    <td><?= htmlspecialchars($row['hostname']) ?></td>
-                    <td><?= htmlspecialchars($row['name']) ?></td>
-                    <td><?= htmlspecialchars($row['frequency']) ?></td>
-                    <td><?= htmlspecialchars($row['symbolrate']) ?></td>
-                    <td><?= htmlspecialchars($row['polarization']) ?></td>
-                    <td><?= htmlspecialchars($row['adapter']) ?></td>
-                    <td><?= htmlspecialchars($row['device']) ?></td>
-                    <td><?= htmlspecialchars($row['type']) ?></td>
-                    <td><?= htmlspecialchars($row['lof1']) ?></td>
-                    <td><?= htmlspecialchars($row['lof2']) ?></td>
-                    <td><?= htmlspecialchars($row['slof']) ?></td>
-                    <td><?= htmlspecialchars($row['lnb_sharing']) ?></td>
-                    <td><?= htmlspecialchars($row['timestamp']) ?></td>
-                </tr>
-            <?php endforeach; ?>
-        </tbody>
-    </table>
-</div>
-
 
     <script>
         function showTable(tableId, btn) {
