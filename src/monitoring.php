@@ -113,6 +113,22 @@ if (!empty($data)) {
                 }
             }
 
+            $logLine = sprintf(
+    "[%s] channel_id=%s, input_id=%s, sc_error=%s, pes_error=%s, pcr_error=%s, cc_error=%s, bitrate=%s, packets=%s, onair=%s\n",
+    date("Y-m-d H:i:s"),
+    $data['channel_id'] ?? 'null',
+    $data['input_id'] ?? 'null',
+    $data['sc_error'] ?? 'null',
+    $data['pes_error'] ?? 'null',
+    $data['pcr_error'] ?? 'null',
+    $data['cc_error'] ?? 'null',
+    $data['bitrate'] ?? 'null',
+    $data['packets'] ?? 'null',
+    isset($data['onair']) ? ($data['onair'] ? 'true' : 'false') : 'null'
+);
+file_put_contents(__DIR__ . '/monitoring_data.txt', $logLine, FILE_APPEND);
+
+
             $timestampKey = "$prefix.timestamp";
             $timestamp = time();
             $memcache->set($timestampKey, $timestamp, 0, 3600);

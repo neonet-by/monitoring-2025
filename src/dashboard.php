@@ -209,9 +209,8 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
         <table class="channel-table">
             <thead>
                 <tr>
-                    <th rowspan="2">ID</th>
-                    <th rowspan="2">Хост</th>
                     <th rowspan="2">Имя</th>
+                    <th rowspan="2">Хост</th>
                     <th colspan="4">Конфигурация</th>
                     <th colspan="7">Метрики</th>
                 </tr>
@@ -235,9 +234,8 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
             <tbody>
                 <?php foreach ($dvbData as $row): ?>
                     <tr>
-                        <td><?= htmlspecialchars($row['id']) ?></td>
-                        <td><?= htmlspecialchars($row['hostname']) ?></td>
                         <td><?= htmlspecialchars($row['name']) ?></td>
+                        <td><?= htmlspecialchars($row['hostname']) ?></td>
                         
                         <!-- Конфигурация -->
                         <td><?= htmlspecialchars($row['frequency']) ?></td>
