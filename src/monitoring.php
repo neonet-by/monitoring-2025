@@ -10,11 +10,13 @@ function __log($msg) {
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
 
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     __log("Error: Only POST requests are allowed");
     exit;
 }
+
 
 try {
     $memcache = new Memcache();
@@ -27,11 +29,11 @@ try {
     exit;
 }
 
+
 $rawInput = file_get_contents('php://input');
 __log("Raw input: " . $rawInput);
 
 $data = json_decode($rawInput, true);
-
 if (json_last_error() !== JSON_ERROR_NONE) {
     http_response_code(400);
     __log("Invalid JSON: " . json_last_error_msg());
@@ -59,6 +61,32 @@ if (isset($data[0]['dvb'])) {
 
         __log("Saved DVB config for ID {$dvbId}");
     }
+$jsonFile = __DIR__ . '/monitoring_data.json';
+$channelsJson = [];
+
+if (file_exists($jsonFile)) {
+    $channelsJson = json_decode(file_get_contents($jsonFile), true);
+    if (!is_array($channelsJson)) {
+        $channelsJson = [];
+    }
+}
+
+foreach ($data as $entry) {
+    $dvb = $entry['dvb'];
+    $dvbId = $dvb['id'] ?? uniqid('dvb_');
+    $channelsJson["dvb_config_{$dvbId}"] = [
+        'id' => $dvbId,
+        'name' => $dvb['name'] ?? 'unknown',
+        'type' => 'dvb_config'
+    ];
+}
+
+if (file_put_contents($jsonFile, json_encode($channelsJson, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) !== false) {
+    __log("Updated JSON with DVB config");
+} else {
+    __log("ERROR writing DVB config to monitoring_data.json");
+}
+
     http_response_code(200);
     exit;
 }
@@ -77,11 +105,34 @@ if (isset($data[0]['dvb_id'])) {
 
         __log("Saved DVB metrics for ID {$dvbId}");
     }
+$jsonFile = __DIR__ . '/monitoring_data.json';
+$channelsJson = [];
+
+if (file_exists($jsonFile)) {
+    $channelsJson = json_decode(file_get_contents($jsonFile), true);
+    if (!is_array($channelsJson)) {
+        $channelsJson = [];
+    }
+}
+
+foreach ($data as $entry) {
+    $dvbId = $entry['dvb_id'];
+    $channelsJson["dvb_metrics_{$dvbId}"] = [
+        'id' => $dvbId,
+        'type' => 'dvb_metrics'
+    ];
+}
+
+if (file_put_contents($jsonFile, json_encode($channelsJson, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) !== false) {
+    __log("Updated JSON with DVB metrics");
+} else {
+    __log("ERROR writing DVB metrics to monitoring_data.json");
+}
+
 
     http_response_code(200);
     exit;
 }
-
 
 if (!empty($data)) {
     try {
@@ -92,7 +143,9 @@ if (!empty($data)) {
         if (isset($data['channel_id']) && isset($data['input_id'])) {
             $channelId = $data['channel_id'];
             $inputId = $data['input_id'];
+            $channelName = $data['channel_name'] ?? "Channel {$channelId}";
             $prefix = "channel.{$channelId}.{$inputId}";
+
             $metrics = [
                 'sc_error', 'pes_error', 'pcr_error',
                 'cc_error', 'bitrate', 'packets', 'onair'
@@ -113,21 +166,26 @@ if (!empty($data)) {
                 }
             }
 
-            $logLine = sprintf(
-    "[%s] channel_id=%s, input_id=%s, sc_error=%s, pes_error=%s, pcr_error=%s, cc_error=%s, bitrate=%s, packets=%s, onair=%s\n",
-    date("Y-m-d H:i:s"),
-    $data['channel_id'] ?? 'null',
-    $data['input_id'] ?? 'null',
-    $data['sc_error'] ?? 'null',
-    $data['pes_error'] ?? 'null',
-    $data['pcr_error'] ?? 'null',
-    $data['cc_error'] ?? 'null',
-    $data['bitrate'] ?? 'null',
-    $data['packets'] ?? 'null',
-    isset($data['onair']) ? ($data['onair'] ? 'true' : 'false') : 'null'
-);
-file_put_contents(__DIR__ . '/monitoring_data.txt', $logLine, FILE_APPEND);
+            $jsonFile = __DIR__ . '/monitoring_data.json';
+            $channelsJson = [];
 
+            if (file_exists($jsonFile)) {
+                $channelsJson = json_decode(file_get_contents($jsonFile), true);
+                if (!is_array($channelsJson)) {
+                    $channelsJson = [];
+                }
+            }
+
+            $channelsJson[$channelId] = [
+                'id' => $channelId,
+                'name' => $channelName
+            ];
+
+            if (file_put_contents($jsonFile, json_encode($channelsJson, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) !== false) {
+                __log("Saved JSON for channel {$channelId}");
+            } else {
+                __log("ERROR writing to monitoring_data.json");
+            }
 
             $timestampKey = "$prefix.timestamp";
             $timestamp = time();
@@ -141,9 +199,10 @@ file_put_contents(__DIR__ . '/monitoring_data.txt', $logLine, FILE_APPEND);
             } else {
                 __log("No changes for channel {$channelId} input {$inputId}");
             }
+
+            http_response_code(200);
+            exit;
         }
-        http_response_code(200);
-        exit;
     } catch (Exception $e) {
         http_response_code(500);
         __log("Processing error: " . $e->getMessage());
@@ -153,5 +212,4 @@ file_put_contents(__DIR__ . '/monitoring_data.txt', $logLine, FILE_APPEND);
 
 http_response_code(400);
 __log("Empty or unsupported data received");
-
 ?>
