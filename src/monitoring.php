@@ -10,6 +10,25 @@ function __log($msg) {
     file_put_contents($logFile, $logMessage, FILE_APPEND);
 }
 
+function save_json_if_changed($path, $newData) {
+    $newJson = json_encode($newData, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+    if (file_exists($path)) {
+        $existingJson = file_get_contents($path);
+        if (json_decode($existingJson, true) === $newData) {
+            __log("No changes detected in $path — skipping write");
+            return true;
+        }
+    }
+
+    if (file_put_contents($path, $newJson) !== false) {
+        __log("File $path updated");
+        return true;
+    } else {
+        __log("ERROR writing to $path");
+        return false;
+    }
+}
+
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
@@ -81,11 +100,7 @@ foreach ($data as $entry) {
     ];
 }
 
-if (file_put_contents($jsonFile, json_encode($channelsJson, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) !== false) {
-    __log("Updated JSON with DVB config");
-} else {
-    __log("ERROR writing DVB config to monitoring_data.json");
-}
+save_json_if_changed($jsonFile, $channelsJson);
 
     http_response_code(200);
     exit;
@@ -123,11 +138,7 @@ foreach ($data as $entry) {
     ];
 }
 
-if (file_put_contents($jsonFile, json_encode($channelsJson, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) !== false) {
-    __log("Updated JSON with DVB metrics");
-} else {
-    __log("ERROR writing DVB metrics to monitoring_data.json");
-}
+save_json_if_changed($jsonFile, $channelsJson);
 
 
     http_response_code(200);
@@ -166,7 +177,6 @@ if (!empty($data)) {
                 }
             }
 
-            $jsonFile = __DIR__ . '/monitoring_data.json';
             $channelsJson = [];
 
             if (file_exists($jsonFile)) {
@@ -181,11 +191,7 @@ if (!empty($data)) {
                 'name' => $channelName
             ];
 
-            if (file_put_contents($jsonFile, json_encode($channelsJson, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) !== false) {
-                __log("Saved JSON for channel {$channelId}");
-            } else {
-                __log("ERROR writing to monitoring_data.json");
-            }
+            save_json_if_changed($jsonFile, $channelsJson);
 
             $timestampKey = "$prefix.timestamp";
             $timestamp = time();
