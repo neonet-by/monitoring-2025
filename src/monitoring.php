@@ -1,5 +1,7 @@
 <?php
 
+$jsonFile = __DIR__ . '/monitoring_data.json';
+
 function __log($msg) {
     date_default_timezone_set('Europe/Minsk');
     $logFile = __DIR__ . '/ast-mon.log';
@@ -29,13 +31,21 @@ function save_json_if_changed($path, $newData) {
     }
 }
 
+function get_from_cache_or_file($memcache, $key, $fileData) {
+    $value = $memcache->get($key);
+    if ($value === false && isset($fileData[$key])) {
+        $value = $fileData[$key];
+        $memcache->set($key, $value, 0, 3600);
+        __log("Loaded $key from file to memcache");
+    }
+    return $value;
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
     __log("Error: Only POST requests are allowed");
     exit;
 }
-
 
 try {
     $memcache = new Memcache();
@@ -48,7 +58,6 @@ try {
     exit;
 }
 
-
 $rawInput = file_get_contents('php://input');
 __log("Raw input: " . $rawInput);
 
@@ -59,8 +68,19 @@ if (json_last_error() !== JSON_ERROR_NONE) {
     exit;
 }
 
+// загрузка данных при старте
+$fileData = [];
+if (file_exists($jsonFile)) {
+    $fileData = json_decode(file_get_contents($jsonFile), true);
+    if (!is_array($fileData)) {
+        $fileData = [];
+    }
+}
 
 if (isset($data[0]['dvb'])) {
+    $changesDetected = false;
+    $newFileData = $fileData;
+
     foreach ($data as $entry) {
         $dvb = $entry['dvb'];
         $hostname = $entry['hostname'] ?? 'unknown';
@@ -69,44 +89,49 @@ if (isset($data[0]['dvb'])) {
 
         $keyPrefix = "dvbconfig.{$dvbId}";
 
-        $memcache->set("{$keyPrefix}.name", $dvb['name'], 0, 3600);
-        $memcache->set("{$keyPrefix}.frequency", $dvb['frequency'], 0, 3600);
-        $memcache->set("{$keyPrefix}.symbolrate", $dvb['symbolrate'], 0, 3600);
-        $memcache->set("{$keyPrefix}.polarization", $dvb['polarization'], 0, 3600);
-        $memcache->set("{$keyPrefix}.adapter", $dvb['adapter'], 0, 3600);
-        $memcache->set("{$keyPrefix}.device", $dvb['device'], 0, 3600);
-        $memcache->set("{$keyPrefix}.hostname", $hostname, 0, 3600);
-        $memcache->set("{$keyPrefix}.timestamp", $timestamp, 0, 3600);
+        // проверка измененийй
+        $fields = [
+            'name' => $dvb['name'],
+            'frequency' => $dvb['frequency'],
+            'symbolrate' => $dvb['symbolrate'],
+            'polarization' => $dvb['polarization'],
+            'adapter' => $dvb['adapter'],
+            'device' => $dvb['device'],
+            'hostname' => $hostname,
+            'timestamp' => $timestamp
+        ];
 
-        __log("Saved DVB config for ID {$dvbId}");
+        foreach ($fields as $field => $newValue) {
+            $key = "{$keyPrefix}.{$field}";
+            $oldValue = get_from_cache_or_file($memcache, $key, $fileData);
+
+            if ($oldValue !== $newValue) {
+                $memcache->set($key, $newValue, 0, 3600);
+                $changesDetected = true;
+                __log("Updated {$key} in memcache");
+            }
+        }
+
+        // обновление
+        $newFileData["dvb_config_{$dvbId}"] = [
+            'id' => $dvbId,
+            'name' => $dvb['name'] ?? 'unknown',
+            'type' => 'dvb_config'
+        ];
     }
-$jsonFile = __DIR__ . '/monitoring_data.json';
-$channelsJson = [];
 
-if (file_exists($jsonFile)) {
-    $channelsJson = json_decode(file_get_contents($jsonFile), true);
-    if (!is_array($channelsJson)) {
-        $channelsJson = [];
+    if ($changesDetected) {
+        save_json_if_changed($jsonFile, $newFileData);
     }
-}
-
-foreach ($data as $entry) {
-    $dvb = $entry['dvb'];
-    $dvbId = $dvb['id'] ?? uniqid('dvb_');
-    $channelsJson["dvb_config_{$dvbId}"] = [
-        'id' => $dvbId,
-        'name' => $dvb['name'] ?? 'unknown',
-        'type' => 'dvb_config'
-    ];
-}
-
-save_json_if_changed($jsonFile, $channelsJson);
 
     http_response_code(200);
     exit;
 }
 
 if (isset($data[0]['dvb_id'])) {
+    $changesDetected = false;
+    $newFileData = $fileData;
+
     foreach ($data as $entry) {
         $dvbId = $entry['dvb_id'];
         $keyPrefix = "dvbmetrics.{$dvbId}";
@@ -114,32 +139,27 @@ if (isset($data[0]['dvb_id'])) {
         $fields = ['count', 'unc', 'signal', 'ber', 'timestamp', 'status', 'snr'];
         foreach ($fields as $field) {
             if (isset($entry[$field])) {
-                $memcache->set("{$keyPrefix}.{$field}", $entry[$field], 0, 3600);
+                $key = "{$keyPrefix}.{$field}";
+                $newValue = $entry[$field];
+                $oldValue = get_from_cache_or_file($memcache, $key, $fileData);
+
+                if ($oldValue !== $newValue) {
+                    $memcache->set($key, $newValue, 0, 3600);
+                    $changesDetected = true;
+                    __log("Updated {$key} in memcache");
+                }
             }
         }
 
-        __log("Saved DVB metrics for ID {$dvbId}");
+        $newFileData["dvb_metrics_{$dvbId}"] = [
+            'id' => $dvbId,
+            'type' => 'dvb_metrics'
+        ];
     }
-$jsonFile = __DIR__ . '/monitoring_data.json';
-$channelsJson = [];
 
-if (file_exists($jsonFile)) {
-    $channelsJson = json_decode(file_get_contents($jsonFile), true);
-    if (!is_array($channelsJson)) {
-        $channelsJson = [];
+    if ($changesDetected) {
+        save_json_if_changed($jsonFile, $newFileData);
     }
-}
-
-foreach ($data as $entry) {
-    $dvbId = $entry['dvb_id'];
-    $channelsJson["dvb_metrics_{$dvbId}"] = [
-        'id' => $dvbId,
-        'type' => 'dvb_metrics'
-    ];
-}
-
-save_json_if_changed($jsonFile, $channelsJson);
-
 
     http_response_code(200);
     exit;
@@ -162,36 +182,31 @@ if (!empty($data)) {
                 'cc_error', 'bitrate', 'packets', 'onair'
             ];
 
-            $changes = [];
+            $changesDetected = false;
+            $newFileData = $fileData;
 
             foreach ($metrics as $metric) {
                 if (isset($data[$metric])) {
                     $key = "$prefix.$metric";
                     $newValue = $data[$metric];
-                    $oldValue = $memcache->get($key);
+                    $oldValue = get_from_cache_or_file($memcache, $key, $fileData);
 
                     if ($oldValue !== $newValue) {
-                        $changes[$metric] = ['old' => $oldValue, 'new' => $newValue];
                         $memcache->set($key, $newValue, 0, 3600);
+                        $changesDetected = true;
+                        __log("Updated {$key} in memcache");
                     }
                 }
             }
 
-            $channelsJson = [];
-
-            if (file_exists($jsonFile)) {
-                $channelsJson = json_decode(file_get_contents($jsonFile), true);
-                if (!is_array($channelsJson)) {
-                    $channelsJson = [];
-                }
-            }
-
-            $channelsJson[$channelId] = [
+            $newFileData[$channelId] = [
                 'id' => $channelId,
                 'name' => $channelName
             ];
 
-            save_json_if_changed($jsonFile, $channelsJson);
+            if ($changesDetected) {
+                save_json_if_changed($jsonFile, $newFileData);
+            }
 
             $timestampKey = "$prefix.timestamp";
             $timestamp = time();
@@ -199,12 +214,6 @@ if (!empty($data)) {
 
             $lastInputKey = "channel{$channelId}.lastInput";
             $memcache->set($lastInputKey, $inputId, 0, 3600);
-
-            if (!empty($changes)) {
-                __log("Changes for channel {$channelId} input {$inputId}: " . json_encode($changes, JSON_UNESCAPED_UNICODE));
-            } else {
-                __log("No changes for channel {$channelId} input {$inputId}");
-            }
 
             http_response_code(200);
             exit;
