@@ -10,8 +10,10 @@ if (!isset($_SESSION['user'])) {
 $user = $_SESSION['user'];
 $isAdmin = isset($user['role']) && $user['role'] === 'admin';
 
-$memcache = new Memcache();
-$memcache->connect('localhost', 11211);
+$memcache = memcache_connect('localhost', 11211);
+if (!$memcache) {
+    die("Не удалось подключиться к Memcached");
+}
 
 function getStatusClass($value) {
     if ($value === 'N/A') return 'neutral';
@@ -21,7 +23,7 @@ function getStatusClass($value) {
 }
 
 function getMemcacheValue($memcache, $key) {
-    $value = $memcache->get($key);
+    $value = memcache_get($memcache, $key);
     return ($value === false || $value === null) ? 'N/A' : $value;
 }
 
@@ -42,7 +44,7 @@ foreach ($channels as $id => $name) {
     while ($emptyAttempts < $maxAttemptsWithoutData) {
         $prefix = "channel.{$id}.{$input}";
         $key = "$prefix.sc_error"; 
-        $new = $memcache->get($key);
+        $new = memcache_get($memcache, $key);
 
         if ($new === false && $new !== 0 && $new !== '0') { 
             $emptyAttempts++;
@@ -56,7 +58,7 @@ foreach ($channels as $id => $name) {
 
         foreach ($metrics as $metric) {
             $key = "$prefix.$metric";
-            $val = $memcache->get($key);
+            $val = memcache_get($memcache, $key);
             
             if ($metric === 'onair') {
                 $values[$metric] = ($val === false || $val === null) ? false : (bool)$val;
@@ -96,7 +98,6 @@ $dvbChannels = [
 $dvbData = [];
 
 foreach ($dvbChannels as $dvbId => $dvbName) {
-    // конфигурация
     $configPrefix = "dvbconfig.{$dvbId}";
     $configMetrics = [
         'name', 'frequency', 'symbolrate', 'polarization', 
@@ -106,17 +107,16 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     
     $configValues = [];
     foreach ($configMetrics as $metric) {
-        $val = $memcache->get("{$configPrefix}.{$metric}");
+        $val = memcache_get($memcache, "{$configPrefix}.{$metric}");
         $configValues[$metric] = ($val === false && $val !== 0 && $val !== '0') ? 'N/A' : $val;
     }
 
-    // метрики
     $metricsPrefix = "dvbmetrics.{$dvbId}";
     $dynamicMetrics = ['count', 'unc', 'signal', 'ber', 'status', 'snr', 'timestamp'];
     
     $dynamicValues = [];
     foreach ($dynamicMetrics as $metric) {
-        $val = $memcache->get("{$metricsPrefix}.{$metric}");
+        $val = memcache_get($memcache, "{$metricsPrefix}.{$metric}");
         if ($metric === 'timestamp') {
             $dynamicValues[$metric] = ($val === false || $val === null) ? 'N/A' : date('H:i:s', $val);
         } else {
@@ -131,6 +131,7 @@ foreach ($dvbChannels as $dvbId => $dvbName) {
     );
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="ru">
